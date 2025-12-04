@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Users API Demo</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    table { border-collapse: collapse; width: 50%; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background-color: #f0f0f0; }
+    input, button { padding: 5px; margin: 5px 0; }
+  </style>
+</head>
+<body>
+  <h1>Users API Demo</h1>
+
+  <h2>Add User</h2>
+  <input type="text" id="username" placeholder="Enter name">
+  <button onclick="addUser()">Add</button>
+
+  <h2>Users List</h2>
+  <table id="usersTable">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Created At</th>
+        <th>Updated At</th>
+        <th>Actions</th> <!-- ⭐ 新增：操作列 -->
+      </tr>
+    </thead>
+    <tbody>
+      <!-- 用户数据会渲染在这里 -->
+    </tbody>
+  </table>
+
+  <script>
+    const API_URL = "http://localhost:3000/api/v1/users";
+
+    // 获取用户列表
+    async function fetchUsers() {
+      const response = await fetch(API_URL);
+      const users = await response.json();
+
+      const tbody = document.querySelector("#usersTable tbody");
+      tbody.innerHTML = "";
+      users.forEach(user => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${user.id}</td>
+          <td>${user.name}</td>
+          <td>${new Date(user.created_at).toLocaleString()}</td>
+          <td>${new Date(user.updated_at).toLocaleString()}</td>
+          <td>
+            <button onclick="deleteUser(${user.id})">Delete</button> <!-- ⭐ 新增：删除按钮 -->
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    // 添加用户
+    async function addUser() {
+      const nameInput = document.getElementById("username");
+      const name = nameInput.value.trim();
+      if (!name) return alert("Name cannot be empty");
+
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: { name } })
+      });
+
+      if (response.ok) {
+        nameInput.value = "";
+        fetchUsers(); // 刷新表格
+      } else {
+        const error = await response.json();
+        alert("Error: " + JSON.stringify(error));
+      }
+    }
+
+    // ⭐ 新增：删除用户功能
+    async function deleteUser(id) {
+        if (!confirm(`Confirm delete user #${id}?`)) {
+            return;                                    // Cancel → 安静地啥也不干
+        }
+
+        try {
+            const response = await fetch(`${API_URL}/${id}`, {
+                method: "DELETE"
+                // 可选：加个 timeout，防止卡死
+                // signal: AbortController 那种
+            });
+
+            if (response.ok) {
+                fetchUsers();                          // 成功 → 刷新
+            } else {
+                // 服务器有响应，但返回 4xx/5xx
+                alert(`Delete failed: ${response.status} ${response.statusText}`);
+            }
+        } catch (error) {
+            // 断网、服务器彻底挂了、CORS、超时、DNS 解析失败……全进这里！
+            console.error(error);
+            alert("Delete failed（可能已断网或服务器不可用）");
+        }
+    }
+
+    // 页面加载时获取用户列表
+    fetchUsers();
+  </script>
+</body>
+</html>
+
